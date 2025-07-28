@@ -236,14 +236,19 @@
         let db;
         let auth;
         let currentUserId = 'anonymous'; // Default to anonymous
+        let isFirebaseReady = false; // Flag to track Firebase initialization status
 
         const userIdDisplay = document.getElementById('userIdDisplay');
+        const processPaymentBtn = document.getElementById('processPaymentBtn'); // Get reference here too
 
         // Initialize Firebase on window load
         window.onload = async function() {
+            // Disable button until Firebase is ready
+            processPaymentBtn.disabled = true;
+            processButtonText.textContent = 'Loading System...';
+
             try {
                 // Firebase project configuration.
-                // This has been updated with your specific details.
                 const firebaseConfig = {
                     apiKey: "AIzaSyB06bTp6Ab0WOwcCORh-NbKccZgosjhe3U",
                     authDomain: "mahadev-75466.firebaseapp.com",
@@ -277,18 +282,27 @@
                         currentUserId = user.uid;
                         userIdDisplay.textContent = currentUserId;
                         console.log("Firebase initialized. User ID:", currentUserId);
+                        isFirebaseReady = true; // Set flag to true on successful auth
+                        processPaymentBtn.disabled = false; // Enable button
+                        processButtonText.textContent = 'Process Payment';
                     } else {
                         // User is signed out, or not authenticated.
                         console.log("No user signed in. Using anonymous ID.");
                         // Fallback to a random ID if truly anonymous and no auth user is present
                         currentUserId = crypto.randomUUID();
                         userIdDisplay.textContent = currentUserId;
+                        isFirebaseReady = false; // Keep flag false if auth fails
+                        processPaymentBtn.disabled = true; // Keep button disabled
+                        processButtonText.textContent = 'System Error';
                     }
                 });
 
             } catch (error) {
                 console.error("Error initializing Firebase:", error);
                 showMessageModal('Initialization Error', `Failed to initialize Firebase: ${error.message}. This often means Firebase Authentication is not enabled in your project. Please go to your Firebase Console > Build > Authentication and enable at least the 'Anonymous' sign-in method. Data persistence will not work until fixed.`);
+                isFirebaseReady = false; // Set flag to false on any init error
+                processPaymentBtn.disabled = true; // Keep button disabled
+                processButtonText.textContent = 'System Error';
             }
         };
 
@@ -301,10 +315,10 @@
         const copyReceiptBtn = document.getElementById('copyReceiptBtn');
         const newPaymentBtn = document.getElementById('newPaymentBtn');
 
-        const transactionScreenshotInput = document.getElementById('transactionScreenshot'); // Re-added
-        const screenshotPreview = document.getElementById('screenshotPreview'); // Re-added
-        const noScreenshotText = document.getElementById('noScreenshotText'); // Re-added
-        const processPaymentBtn = document.getElementById('processPaymentBtn'); // Reference to the main button
+        const transactionScreenshotInput = document.getElementById('transactionScreenshot');
+        const screenshotPreview = document.getElementById('screenshotPreview');
+        const noScreenshotText = document.getElementById('noScreenshotText');
+        // processPaymentBtn is now global from window.onload scope
         const processButtonText = document.getElementById('processButtonText');
         const processLoadingSpinner = document.getElementById('processLoadingSpinner');
 
@@ -394,6 +408,12 @@
         paymentForm.addEventListener('submit', async function(event) {
             event.preventDefault(); // Prevent default form submission
 
+            // Check if Firebase is ready before proceeding
+            if (!isFirebaseReady) {
+                showMessageModal('System Not Ready', 'The payment system is not fully initialized. Please ensure Firebase Authentication is enabled in your project and try again.');
+                return; // Exit if not ready
+            }
+
             // Validate Year selection
             const selectedYear = studentYearSelect.value;
             if (selectedYear === "") {
@@ -423,18 +443,6 @@
                 transactionId = 'TRN-' + Date.now() + Math.floor(Math.random() * 1000); // Generate random ID if no screenshot
             }
 
-            // Ensure Firebase is initialized and user ID is available
-            // Use the globally defined 'appId' from the firebaseConfig object
-            // Note: appId is now directly available in this module scope due to the fix.
-            if (!db || !auth || !currentUserId || currentUserId === 'anonymous' || !firebaseConfig.projectId) {
-                showMessageModal('Error', 'Firebase is not fully initialized or configuration is incomplete. Please check console for details.');
-                // Re-enable button and hide spinner if Firebase is not ready
-                processButtonText.textContent = 'Process Payment';
-                processLoadingSpinner.classList.add('hidden');
-                processPaymentBtn.disabled = false;
-                return;
-            }
-
             // Get form values (amount and description are now fixed/readonly)
             const payerName = document.getElementById('payerName').value;
             const amount = '100.00'; // Fixed amount
@@ -456,12 +464,8 @@
 
             try {
                 console.log("Attempting to save data to Firestore...");
-                console.log("Collection Path:", `artifacts/${firebaseConfig.projectId}/users/${currentUserId}/receipts`); // Use firebaseConfig.projectId
-                console.log("Data:", receiptData);
-
-                // Save data to Firestore
-                // Collection path: /artifacts/{appId}/users/{userId}/receipts
-                const receiptsCollectionRef = collection(db, `artifacts/${firebaseConfig.projectId}/users/${currentUserId}/receipts`); // Use firebaseConfig.projectId
+                // Use the projectId from the firebaseConfig for the collection path
+                const receiptsCollectionRef = collection(db, `artifacts/${firebaseConfig.projectId}/users/${currentUserId}/receipts`);
                 await addDoc(receiptsCollectionRef, receiptData);
                 showMessageModal('Data Saved!', 'Receipt data has been successfully saved to Firestore.');
                 console.log("Data successfully saved to Firestore!");
@@ -479,13 +483,13 @@
             const receiptHtml = `
                 <!-- College Header Section -->
                 <div class="flex justify-between items-center mb-6">
-                    <img src="${collegeLogoUrl}" alt="College Logo" class="w-20 h-20 object-contain" onerror="this.onerror=null;this.src='https://placehold.co/80x80/cccccc/333333?text=Logo';">
+                    <img src="trinity.png" alt="College Logo" class="w-20 h-20 object-contain" onerror="this.onerror=null;this.src='https://placehold.co/80x80/cccccc/333333?text=Logo';">
                     <div class="text-center flex-grow mx-4">
                         <h2 class="text-xl font-bold text-gray-800">Trinity College of Engineering and Research</h2>
                         <p class="text-sm text-gray-600">(An Autonomous Institute Affiliated to Savitribai Phule Pune University)</p>
                         <h3 class="text-lg font-semibold text-gray-700 mt-2">TITANS - IT Department</h3>
                     </div>
-                    <img src="https://placehold.co/80x80/cccccc/333333?text=TITANS" alt="TITANS Logo" class="w-20 h-20 object-contain">
+                    <img src="titanlogo.png" alt="TITANS Logo" class="w-20 h-20 object-contain">
                 </div>
 
                 <!-- Receipt Details Section -->
