@@ -242,13 +242,23 @@
         // Initialize Firebase on window load
         window.onload = async function() {
             try {
-                // MANDATORY: Use __firebase_config and __app_id provided by the environment
-                const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                // Firebase project configuration.
+                // This has been updated with your specific details.
+                const firebaseConfig = {
+                    apiKey: "AIzaSyB06bTp6Ab0WOwcCORh-NbKccZgosjhe3U",
+                    authDomain: "mahadev-75466.firebaseapp.com",
+                    projectId: "mahadev-75466",
+                    storageBucket: "mahadev-75466.firebasestorage.app",
+                    messagingSenderId: "882377033842",
+                    appId: "1:882377033842:web:08c151c4e9e977b5659aeb"
+                };
+                const appId = firebaseConfig.projectId; // Use your projectId as the appId for collection paths
 
-                if (Object.keys(firebaseConfig).length === 0) {
-                    console.error("Firebase config is missing. Cannot initialize Firebase.");
-                    showMessageModal('Initialization Error', 'Firebase configuration is missing. Data persistence will not work.');
+                console.log("Firebase Config being used:", firebaseConfig); // Log config for debugging
+
+                if (Object.keys(firebaseConfig).length === 0 || firebaseConfig.apiKey === "YOUR_API_KEY" || firebaseConfig.projectId === "YOUR_PROJECT_ID") {
+                    console.error("Firebase config is missing or placeholder. Cannot initialize Firebase.");
+                    showMessageModal('Initialization Error', 'Firebase configuration is missing or contains placeholders. Please update `firebaseConfig` in the code with your actual project details. Data persistence will not work.');
                     return;
                 }
 
@@ -257,6 +267,8 @@
                 auth = getAuth(app);
 
                 // MANDATORY: Sign in with custom token if available, otherwise anonymously
+                // Note: __initial_auth_token is specific to the Canvas environment.
+                // For GitHub Pages, signInAnonymously() is typically used for unauthenticated users.
                 if (typeof __initial_auth_token !== 'undefined') {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
@@ -271,16 +283,16 @@
                         console.log("Firebase initialized. User ID:", currentUserId);
                     } else {
                         // User is signed out, or not authenticated.
-                        // For this app, we default to anonymous if custom token is not present.
-                        console.log("No user signed in. Using anonymous ID.");
-                        currentUserId = crypto.randomUUID(); // Fallback to a random ID if truly anonymous
+                        console.log("No user signed in. Attempting anonymous sign-in.");
+                        // Fallback to a random ID if truly anonymous and no auth user is present
+                        currentUserId = crypto.randomUUID();
                         userIdDisplay.textContent = currentUserId;
                     }
                 });
 
             } catch (error) {
                 console.error("Error initializing Firebase:", error);
-                showMessageModal('Initialization Error', `Failed to initialize Firebase: ${error.message}. Data persistence will not work.`);
+                showMessageModal('Initialization Error', `Failed to initialize Firebase: ${error.message}. This often means Firebase Authentication is not enabled in your project. Please go to your Firebase Console > Build > Authentication and enable at least the 'Anonymous' sign-in method. Data persistence will not work until fixed.`);
             }
         };
 
@@ -416,8 +428,10 @@
             }
 
             // Ensure Firebase is initialized and user ID is available
-            if (!db || !auth || !currentUserId || currentUserId === 'anonymous') {
-                showMessageModal('Error', 'Firebase is not fully initialized. Please wait or refresh the page.');
+            // Use the globally defined 'appId' from the firebaseConfig object
+            // Note: appId is now directly available in this module scope due to the fix.
+            if (!db || !auth || !currentUserId || currentUserId === 'anonymous' || !firebaseConfig.projectId) {
+                showMessageModal('Error', 'Firebase is not fully initialized or configuration is incomplete. Please check console for details.');
                 // Re-enable button and hide spinner if Firebase is not ready
                 processButtonText.textContent = 'Process Payment';
                 processLoadingSpinner.classList.add('hidden');
@@ -446,12 +460,12 @@
 
             try {
                 console.log("Attempting to save data to Firestore...");
-                console.log("Collection Path:", `artifacts/${__app_id}/users/${currentUserId}/receipts`);
+                console.log("Collection Path:", `artifacts/${firebaseConfig.projectId}/users/${currentUserId}/receipts`); // Use firebaseConfig.projectId
                 console.log("Data:", receiptData);
 
                 // Save data to Firestore
                 // Collection path: /artifacts/{appId}/users/{userId}/receipts
-                const receiptsCollectionRef = collection(db, `artifacts/${__app_id}/users/${currentUserId}/receipts`);
+                const receiptsCollectionRef = collection(db, `artifacts/${firebaseConfig.projectId}/users/${currentUserId}/receipts`); // Use firebaseConfig.projectId
                 await addDoc(receiptsCollectionRef, receiptData);
                 showMessageModal('Data Saved!', 'Receipt data has been successfully saved to Firestore.');
                 console.log("Data successfully saved to Firestore!");
@@ -475,7 +489,7 @@
                         <p class="text-sm text-gray-600">(An Autonomous Institute Affiliated to Savitribai Phule Pune University)</p>
                         <h3 class="text-lg font-semibold text-gray-700 mt-2">TITANS - IT Department</h3>
                     </div>
-                    <img src="titanslogo.png" alt="TITANS Logo" class="w-20 h-20 object-contain">
+                    <img src="titanslogo.pngS" alt="TITANS Logo" class="w-20 h-20 object-contain">
                 </div>
 
                 <!-- Receipt Details Section -->
