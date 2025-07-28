@@ -266,14 +266,10 @@
                 db = getFirestore(app);
                 auth = getAuth(app);
 
-                // MANDATORY: Sign in with custom token if available, otherwise anonymously
-                // Note: __initial_auth_token is specific to the Canvas environment.
-                // For GitHub Pages, signInAnonymously() is typically used for unauthenticated users.
-                if (typeof __initial_auth_token !== 'undefined') {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
+                // For GitHub Pages, always attempt anonymous sign-in.
+                // The __initial_auth_token is only available in the Canvas environment.
+                await signInAnonymously(auth);
+
 
                 // Listen for auth state changes to get the user ID
                 onAuthStateChanged(auth, (user) => {
@@ -283,7 +279,7 @@
                         console.log("Firebase initialized. User ID:", currentUserId);
                     } else {
                         // User is signed out, or not authenticated.
-                        console.log("No user signed in. Attempting anonymous sign-in.");
+                        console.log("No user signed in. Using anonymous ID.");
                         // Fallback to a random ID if truly anonymous and no auth user is present
                         currentUserId = crypto.randomUUID();
                         userIdDisplay.textContent = currentUserId;
@@ -483,13 +479,13 @@
             const receiptHtml = `
                 <!-- College Header Section -->
                 <div class="flex justify-between items-center mb-6">
-                    <img src="trinity.png" alt="College Logo" class="w-20 h-20 object-contain" onerror="this.onerror=null;this.src='https://placehold.co/80x80/cccccc/333333?text=Logo';">
+                    <img src="${collegeLogoUrl}" alt="College Logo" class="w-20 h-20 object-contain" onerror="this.onerror=null;this.src='https://placehold.co/80x80/cccccc/333333?text=Logo';">
                     <div class="text-center flex-grow mx-4">
                         <h2 class="text-xl font-bold text-gray-800">Trinity College of Engineering and Research</h2>
                         <p class="text-sm text-gray-600">(An Autonomous Institute Affiliated to Savitribai Phule Pune University)</p>
                         <h3 class="text-lg font-semibold text-gray-700 mt-2">TITANS - IT Department</h3>
                     </div>
-                    <img src="titanslogo.pngS" alt="TITANS Logo" class="w-20 h-20 object-contain">
+                    <img src="https://placehold.co/80x80/cccccc/333333?text=TITANS" alt="TITANS Logo" class="w-20 h-20 object-contain">
                 </div>
 
                 <!-- Receipt Details Section -->
