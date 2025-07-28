@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment & Receipt System</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for Inter font and general body styling */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Light blue-gray background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+            box-sizing: border-box;
+        }
+        /* Ensure the main container is centered and responsive */
+        .container {
+            max-width: 90%; /* Responsive width */
+            width: 500px; /* Max width for larger screens */
+        }
+        /* Basic styling for buttons to ensure consistency */
+        button {
+            transition: all 0.2s ease-in-out;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        /* Modal overlay styling */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 2.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            max-width: 90%;
+            width: 600px;
+            max-height: 90vh; /* Limit height for scrollability */
+            overflow-y: auto; /* Enable scrolling for long receipts */
+            position: relative;
+        }
+        .close-button {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #4a5568; /* Gray color */
+        }
+        /* Spinner for loading */
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #ffffff; /* White spinner for blue button */
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 0.5rem;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+    <div id="app-container" class="container bg-white p-8 rounded-2xl shadow-xl border border-gray-200">
+        <h1 class="text-3xl font-extrabold text-center text-gray-800 mb-8">Payment System</h1>
+
+        <!-- User ID Display -->
+        <div class="text-center text-sm text-gray-600 mb-4 p-2 bg-blue-50 rounded-lg">
+            Your User ID: <span id="userIdDisplay" class="font-mono text-blue-800 break-all">Loading...</span>
+        </div>
+
+        <!-- Payment Form Section -->
+        <div id="payment-form-section">
+            <form id="paymentForm" class="space-y-6">
+                <div>
+                    <label for="payerName" class="block text-sm font-medium text-gray-700 mb-1">Payer Name</label>
+                    <input type="text" id="payerName" name="payerName" placeholder="Enter payer's name" required
+                           class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="amount" class="block text-sm font-medium text-gray-700 mb-1">Amount (₹)</label>
+                    <input type="number" id="amount" name="amount" value="100.00" readonly
+                           class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-gray-100 cursor-not-allowed">
+                </div>
+                <div>
+                    <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Particulars</label>
+                    <textarea id="description" name="description" rows="3" readonly
+                              class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-gray-100 cursor-not-allowed">TITANS STUDENT FUND</textarea>
+                </div>
+                <div>
+                    <label for="studentYear" class="block text-sm font-medium text-gray-700 mb-1">Year</label>
+                    <select id="studentYear" name="studentYear" required
+                            class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        <option value="">Select Year</option>
+                        <option value="SE">SE</option>
+                        <option value="TE">TE</option>
+                    </select>
+                </div>
+
+                <!-- Transaction Screenshot Upload Section (re-added) -->
+                <div class="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                    <label for="transactionScreenshot" class="block text-sm font-medium text-gray-700 mb-2">Upload Transaction Screenshot (Optional)</label>
+                    <input type="file" id="transactionScreenshot" name="transactionScreenshot" accept="image/*"
+                           class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    <div class="mt-4 text-center">
+                        <img id="screenshotPreview" src="" alt="Screenshot Preview" class="hidden max-w-full h-auto mx-auto rounded-lg shadow-md border border-gray-200">
+                        <p id="noScreenshotText" class="text-gray-500 text-sm mt-2">No screenshot selected.</p>
+                    </div>
+                </div>
+
+                <button type="submit" id="processPaymentBtn"
+                        class="w-full py-3 px-6 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span id="processButtonText">Process Payment</span>
+                    <span id="processLoadingSpinner" class="spinner hidden"></span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Receipt Display Section (initially hidden) -->
+        <div id="receipt-section" class="hidden mt-8">
+            <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Payment Receipt</h2>
+            <div id="receipt-content" class="bg-gray-50 p-6 rounded-lg border border-gray-200 text-gray-700 leading-relaxed">
+                <!-- Receipt details will be inserted here by JavaScript -->
+                <div id="receiptTextContent" class="text-gray-700 leading-relaxed p-4">
+                    <!-- College Header Section - Dynamically inserted -->
+                    <!-- Receipt Details Section - Dynamically inserted -->
+                    <!-- Particulars Table Section - Dynamically inserted -->
+                </div>
+            </div>
+            <div class="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4 mt-6">
+                <button id="printReceiptBtn"
+                        class="flex-1 py-3 px-6 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                    Print Receipt
+                </button>
+                <button id="copyReceiptBtn"
+                        class="flex-1 py-3 px-6 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
+                    Copy Receipt
+                </button>
+                <button id="newPaymentBtn"
+                        class="flex-1 py-3 px-6 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">
+                    New Payment
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Message Box Modal -->
+    <div id="message-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button class="close-button" onclick="closeMessageModal()">&times;</button>
+            <h3 id="message-title" class="text-xl font-bold mb-4 text-gray-800"></h3>
+            <p id="message-text" class="text-gray-700"></p>
+            <div class="flex justify-end mt-6">
+                <button onclick="closeMessageModal()"
+                        class="py-2 px-5 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                    OK
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get references to HTML elements for global access
+        const messageModal = document.getElementById('message-modal');
+        const messageTitle = document.getElementById('message-title');
+        const messageText = document.getElementById('message-text');
+
+        /**
+         * Displays a custom message box modal.
+         * @param {string} title - The title of the message box.
+         * @param {string} message - The content message.
+         */
+        function showMessageModal(title, message) {
+            messageTitle.textContent = title;
+            messageText.textContent = message;
+            messageModal.classList.remove('hidden');
+        }
+
+        /**
+         * Closes the custom message box modal.
+         */
+        function closeMessageModal() {
+            messageModal.classList.add('hidden');
+        }
+
+        /**
+         * Converts a Data URL (base64) to a format suitable for Gemini API.
+         * Extracts mimeType and base64 data.
+         * @param {string} dataUrl - The Data URL string.
+         * @returns {object} An object with mimeType and data.
+         */
+        function parseDataUrl(dataUrl) {
+            const parts = dataUrl.split(';base64,');
+            if (parts.length !== 2) {
+                throw new Error('Invalid Data URL format');
+            }
+            return {
+                mimeType: parts[0].split(':')[1],
+                data: parts[1]
+            };
+        }
+    </script>
+
+    <!-- Firebase SDKs and main application logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables for Firebase instances (defined in module scope)
+        let app;
+        let db;
+        let auth;
+        let currentUserId = 'anonymous'; // Default to anonymous
+
+        const userIdDisplay = document.getElementById('userIdDisplay');
+
+        // Initialize Firebase on window load
+        window.onload = async function() {
+            try {
+                // MANDATORY: Use __firebase_config and __app_id provided by the environment
+                const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+                if (Object.keys(firebaseConfig).length === 0) {
+                    console.error("Firebase config is missing. Cannot initialize Firebase.");
+                    showMessageModal('Initialization Error', 'Firebase configuration is missing. Data persistence will not work.');
+                    return;
+                }
+
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // MANDATORY: Sign in with custom token if available, otherwise anonymously
+                if (typeof __initial_auth_token !== 'undefined') {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                // Listen for auth state changes to get the user ID
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        currentUserId = user.uid;
+                        userIdDisplay.textContent = currentUserId;
+                        console.log("Firebase initialized. User ID:", currentUserId);
+                    } else {
+                        // User is signed out, or not authenticated.
+                        // For this app, we default to anonymous if custom token is not present.
+                        console.log("No user signed in. Using anonymous ID.");
+                        currentUserId = crypto.randomUUID(); // Fallback to a random ID if truly anonymous
+                        userIdDisplay.textContent = currentUserId;
+                    }
+                });
+
+            } catch (error) {
+                console.error("Error initializing Firebase:", error);
+                showMessageModal('Initialization Error', `Failed to initialize Firebase: ${error.message}. Data persistence will not work.`);
+            }
+        };
+
+        // Get references to HTML elements (re-declared for module scope)
+        const paymentForm = document.getElementById('paymentForm');
+        const paymentFormSection = document.getElementById('payment-form-section');
+        const receiptSection = document.getElementById('receipt-section');
+        const receiptTextContent = document.getElementById('receiptTextContent');
+        const printReceiptBtn = document.getElementById('printReceiptBtn');
+        const copyReceiptBtn = document.getElementById('copyReceiptBtn');
+        const newPaymentBtn = document.getElementById('newPaymentBtn');
+
+        const transactionScreenshotInput = document.getElementById('transactionScreenshot'); // Re-added
+        const screenshotPreview = document.getElementById('screenshotPreview'); // Re-added
+        const noScreenshotText = document.getElementById('noScreenshotText'); // Re-added
+        const processPaymentBtn = document.getElementById('processPaymentBtn'); // Reference to the main button
+        const processButtonText = document.getElementById('processButtonText');
+        const processLoadingSpinner = document.getElementById('processLoadingSpinner');
+
+
+        const studentYearSelect = document.getElementById('studentYear');
+
+        // Hardcoded college logo URL
+        const collegeLogoUrl = 'http://googleusercontent.com/file_content/3';
+
+        /**
+         * Handles the transaction screenshot file input change.
+         */
+        transactionScreenshotInput.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    screenshotPreview.src = e.target.result;
+                    screenshotPreview.classList.remove('hidden');
+                    noScreenshotText.classList.add('hidden');
+                };
+                reader.readAsDataURL(file);
+            } else {
+                screenshotPreview.src = '';
+                screenshotPreview.classList.add('hidden');
+                noScreenshotText.classList.remove('hidden');
+            }
+        });
+
+        /**
+         * Calls the Gemini API to scan the image for a transaction ID.
+         * @param {string} imageDataUrl - The Data URL of the image.
+         * @returns {Promise<string>} The extracted transaction ID or 'NOT_FOUND'.
+         */
+        async function scanImageForTransactionId(imageDataUrl) {
+            try {
+                const { mimeType, data: base64ImageData } = parseDataUrl(imageDataUrl);
+
+                let chatHistory = [];
+                const prompt = "Extract the transaction ID from this image. The transaction ID usually starts with 'TRN-', 'TXN', 'UPI', 'REF', 'ID', or is a sequence of alphanumeric characters related to a payment. If found, provide only the ID. If not found, say 'NOT_FOUND'.";
+
+                const payload = {
+                    contents: [
+                        {
+                            role: "user",
+                            parts: [
+                                { text: prompt },
+                                {
+                                    inlineData: {
+                                        mimeType: mimeType,
+                                        data: base64ImageData
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                };
+
+                const apiKey = ""; // Canvas will automatically provide it in runtime
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    return result.candidates[0].content.parts[0].text.trim();
+                } else {
+                    return 'NOT_FOUND';
+                }
+            } catch (error) {
+                console.error('Error scanning image:', error);
+                return 'NOT_FOUND'; // Return NOT_FOUND on error
+            }
+        }
+
+        /**
+         * Handles the payment form submission.
+         * @param {Event} event - The form submission event.
+         */
+        paymentForm.addEventListener('submit', async function(event) {
+            event.preventDefault(); // Prevent default form submission
+
+            // Validate Year selection
+            const selectedYear = studentYearSelect.value;
+            if (selectedYear === "") {
+                showMessageModal('Input Error', 'Please select a valid year (SE or TE).');
+                return;
+            }
+
+            // Show loading state for the main button
+            processButtonText.textContent = 'Processing...';
+            processLoadingSpinner.classList.remove('hidden');
+            processPaymentBtn.disabled = true;
+
+            let transactionId = '';
+            const imageDataUrl = screenshotPreview.src;
+
+            // Step 1: Scan image for transaction ID if a screenshot is uploaded
+            if (imageDataUrl && !screenshotPreview.classList.contains('hidden')) {
+                const scannedId = await scanImageForTransactionId(imageDataUrl);
+                if (scannedId && scannedId !== 'NOT_FOUND') {
+                    transactionId = scannedId;
+                    showMessageModal('Scan Result', `Transaction ID extracted: ${transactionId}`);
+                } else {
+                    showMessageModal('Scan Result', 'No clear transaction ID found in the image. Generating a random one.');
+                    transactionId = 'TRN-' + Date.now() + Math.floor(Math.random() * 1000); // Generate random ID
+                }
+            } else {
+                transactionId = 'TRN-' + Date.now() + Math.floor(Math.random() * 1000); // Generate random ID if no screenshot
+            }
+
+            // Ensure Firebase is initialized and user ID is available
+            if (!db || !auth || !currentUserId || currentUserId === 'anonymous') {
+                showMessageModal('Error', 'Firebase is not fully initialized. Please wait or refresh the page.');
+                // Re-enable button and hide spinner if Firebase is not ready
+                processButtonText.textContent = 'Process Payment';
+                processLoadingSpinner.classList.add('hidden');
+                processPaymentBtn.disabled = false;
+                return;
+            }
+
+            // Get form values (amount and description are now fixed/readonly)
+            const payerName = document.getElementById('payerName').value;
+            const amount = '100.00'; // Fixed amount
+            const description = 'TITANS STUDENT FUND'; // Fixed particulars
+            const receiptNo = `RCPT-${selectedYear}1-${Date.now().toString().slice(-6)}`; // Modified receipt number
+            const paymentDate = new Date().toLocaleString(); // Current date and time
+
+            // Prepare receipt data for Firestore
+            const receiptData = {
+                payerName: payerName,
+                amount: amount,
+                particulars: description,
+                transactionId: transactionId,
+                receiptNo: receiptNo,
+                paymentDate: paymentDate,
+                studentYear: selectedYear, // Add student year to data
+                timestamp: serverTimestamp() // Firestore server timestamp
+            };
+
+            try {
+                console.log("Attempting to save data to Firestore...");
+                console.log("Collection Path:", `artifacts/${__app_id}/users/${currentUserId}/receipts`);
+                console.log("Data:", receiptData);
+
+                // Save data to Firestore
+                // Collection path: /artifacts/{appId}/users/{userId}/receipts
+                const receiptsCollectionRef = collection(db, `artifacts/${__app_id}/users/${currentUserId}/receipts`);
+                await addDoc(receiptsCollectionRef, receiptData);
+                showMessageModal('Data Saved!', 'Receipt data has been successfully saved to Firestore.');
+                console.log("Data successfully saved to Firestore!");
+            } catch (error) {
+                console.error("Error saving receipt to Firestore:", error);
+                showMessageModal('Save Error', `Failed to save receipt data: ${error.message}. Please check console for details.`);
+            } finally {
+                // Hide loading state and re-enable button regardless of success or failure
+                processButtonText.textContent = 'Process Payment';
+                processLoadingSpinner.classList.add('hidden');
+                processPaymentBtn.disabled = false;
+            }
+
+            // Generate receipt HTML content based on the provided image template
+            const receiptHtml = `
+                <!-- College Header Section -->
+                <div class="flex justify-between items-center mb-6">
+                    <img src="${collegeLogoUrl}" alt="College Logo" class="w-20 h-20 object-contain" onerror="this.onerror=null;this.src='https://placehold.co/80x80/cccccc/333333?text=Logo';">
+                    <div class="text-center flex-grow mx-4">
+                        <h2 class="text-xl font-bold text-gray-800">Trinity College of Engineering and Research</h2>
+                        <p class="text-sm text-gray-600">(An Autonomous Institute Affiliated to Savitribai Phule Pune University)</p>
+                        <h3 class="text-lg font-semibold text-gray-700 mt-2">TITANS - IT Department</h3>
+                    </div>
+                    <img src="https://placehold.co/80x80/cccccc/333333?text=TITANS" alt="TITANS Logo" class="w-20 h-20 object-contain">
+                </div>
+
+                <!-- Receipt Details Section -->
+                <div class="grid grid-cols-2 gap-y-2 gap-x-4 mb-6 text-sm">
+                    <div><strong class="text-gray-800">Receipt No. :</strong> ${receiptNo}</div>
+                    <div class="text-right"><strong class="text-800">Receipt Date :</strong> ${paymentDate}</div>
+                    <div><strong class="text-gray-800">Name :</strong> ${payerName}</div>
+                    <div class="text-right"><strong class="text-gray-800">Transaction ID :</strong> ${transactionId}</div>
+                </div>
+
+                <!-- Particulars Table Section -->
+                <div class="border border-gray-400 rounded-lg overflow-hidden mb-6">
+                    <div class="grid grid-cols-2 bg-gray-200 font-semibold text-gray-800 border-b border-gray-400">
+                        <div class="p-3 border-r border-gray-400">Particulars</div>
+                        <div class="p-3 text-right">Amount</div>
+                    </div>
+                    <div class="grid grid-cols-2 min-h-[150px]">
+                        <div class="p-3 border-r border-gray-400 align-top">${description}</div>
+                        <div class="p-3 text-right align-top">₹${amount}</div>
+                    </div>
+                    <div class="grid grid-cols-2 font-bold text-gray-800 border-t border-gray-400">
+                        <div class="p-3 text-right">TOTAL :</div>
+                        <div class="p-3 text-right">₹${amount}</div>
+                    </div>
+                </div>
+                <p class="text-center text-sm italic text-gray-500 mt-4">Thank you for your payment!</p>
+            `;
+
+            // Display receipt HTML content
+            receiptTextContent.innerHTML = receiptHtml;
+
+            // Display receipt section and hide payment form
+            paymentFormSection.classList.add('hidden');
+            receiptSection.classList.remove('hidden');
+
+            // Final message after everything is done
+            showMessageModal('Payment Processed', 'Your payment has been processed and receipt generated. Data saved to Firestore.');
+        });
+
+        /**
+         * Handles the print receipt button click.
+         */
+        printReceiptBtn.addEventListener('click', function() {
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write('<html><head><title>Payment Receipt</title>');
+            printWindow.document.write('<style>');
+            printWindow.document.write(`
+                body { font-family: 'Inter', sans-serif; margin: 20px; }
+                h1 { text-align: center; color: #333; }
+                p { margin-bottom: 5px; }
+                strong { color: #0056b3; }
+                .receipt-box { border: 1px solid #ccc; padding: 20px; border-radius: 8px; background-color: #f9f9f9; }
+                .italic-text { text-align: center; font-style: italic; color: #555; margin-top: 15px; }
+                /* Styles for print to match the on-screen receipt */
+                .flex { display: flex; }
+                .justify-between { justify-content: space-between; }
+                .items-center { align-items: center; }
+                .mb-6 { margin-bottom: 1.5rem; }
+                .w-20 { width: 5rem; }
+                .h-20 { height: 5rem; }
+                .object-contain { object-fit: contain; }
+                .text-center { text-align: center; }
+                .flex-grow { flex-grow: 1; }
+                .mx-4 { margin-left: 1rem; margin-right: 1rem; }
+                .text-xl { font-size: 1.25rem; }
+                .font-bold { font-weight: 700; }
+                .text-gray-800 { color: #2d3748; }
+                .text-sm { font-size: 0.875rem; }
+                .text-gray-600 { color: #4a5568; }
+                .text-lg { font-size: 1.125rem; }
+                .font-semibold { font-weight: 600; }
+                .text-gray-700 { color: #4a5568; }
+                .mt-2 { margin-top: 0.5rem; }
+                .grid { display: grid; }
+                .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+                .gap-y-2 { row-gap: 0.5rem; }
+                .gap-x-4 { column-gap: 1rem; }
+                .text-right { text-align: right; }
+                .border { border-width: 1px; }
+                .border-gray-400 { border-color: #cbd5e0; }
+                .rounded-lg { border-radius: 0.5rem; }
+                .overflow-hidden { overflow: hidden; }
+                .bg-gray-200 { background-color: #edf2f7; }
+                .border-b { border-bottom-width: 1px; }
+                .border-r { border-right-width: 1px; }
+                .p-3 { padding: 0.75rem; }
+                .min-h-\[150px\] { min-height: 150px; }
+                .align-top { vertical-align: top; }
+                .border-t { border-top-width: 1px; }
+                .mt-4 { margin-top: 1rem; }
+            `);
+            printWindow.document.write('</style></head><body>');
+            printWindow.document.write('<div class="receipt-box">');
+            // Directly write the generated receipt content HTML
+            printWindow.document.write(receiptTextContent.innerHTML);
+            printWindow.document.write('</div></body></html>');
+            printWindow.document.close();
+            printWindow.print();
+        });
+
+        /**
+         * Handles the copy receipt button click.
+         */
+        copyReceiptBtn.addEventListener('click', function() {
+            // Create a temporary textarea to hold the text to be copied
+            const tempTextArea = document.createElement('textarea');
+            // Get plain text from the entire receiptTextContent div
+            tempTextArea.value = receiptTextContent.innerText;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select(); // Select the text
+            try {
+                // Execute copy command
+                document.execCommand('copy');
+                showMessageModal('Copied!', 'Receipt text copied to clipboard!');
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+                showMessageModal('Error', 'Failed to copy receipt text.');
+            } finally {
+                document.body.removeChild(tempTextArea); // Remove the temporary textarea
+            }
+        });
+
+        /**
+         * Resets the form and goes back to the payment input section.
+         */
+        newPaymentBtn.addEventListener('click', function() {
+            paymentForm.reset(); // Clear form fields
+            receiptTextContent.innerHTML = ''; // Clear receipt content
+            // Reset screenshot preview
+            screenshotPreview.src = '';
+            screenshotPreview.classList.add('hidden');
+            noScreenshotText.classList.remove('hidden');
+            receiptSection.classList.add('hidden'); // Hide receipt
+            paymentFormSection.classList.remove('hidden'); // Show payment form
+            // Reset the dropdown to its default "Select Year" option
+            studentYearSelect.value = "";
+            showMessageModal('Ready for New Payment', 'The system is ready for a new payment entry.');
+        });
+    </script>
+</body>
+</html>
