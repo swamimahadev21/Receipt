@@ -6,6 +6,9 @@
     <title>Titans Student Fund - Receipt Generator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Times+New+Roman&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- PDF Generation Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -28,7 +31,7 @@
                 width: 100%;
                 border: none;
             }
-            #print-button, #new-receipt-button, #form-section, #send-email-button {
+            #download-pdf-button, #new-receipt-button, #form-section, #send-email-button {
                 display: none;
             }
         }
@@ -161,7 +164,7 @@
 
             </div>
             <div class="mt-6 flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-4">
-                <button id="print-button" class="flex-1 bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition">Print</button>
+                <button id="download-pdf-button" class="flex-1 bg-purple-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition">Download PDF</button>
                 <button id="send-email-button" class="flex-1 bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition">Send Email</button>
                 <button id="new-receipt-button" class="flex-1 bg-gray-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition">Create New</button>
             </div>
@@ -193,29 +196,23 @@
         const generateBtn = document.getElementById('generate-button');
         const buttonText = document.getElementById('button-text');
         const buttonLoader = document.getElementById('button-loader');
+        const downloadPdfBtn = document.getElementById('download-pdf-button');
 
         // --- Form Submission Handler ---
         receiptForm.addEventListener('submit', async function(event) {
             event.preventDefault();
             
-            // --- Basic Client-Side Validation ---
             if (!validateForm()) return;
 
-            // --- UI: Show Loading State ---
             setLoading(true);
-
-            // --- Generate Data ---
             const receiptData = generateReceiptData();
             
             try {
-                // --- Send Data to Google Apps Script ---
                 const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
-                    mode: 'cors', // Required for cross-origin requests
+                    mode: 'cors',
                     cache: 'no-cache',
-                    headers: {
-                        'Content-Type': 'text/plain;charset=utf-8', // Apps Script quirk
-                    },
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: JSON.stringify(receiptData),
                     redirect: 'follow'
                 });
@@ -223,22 +220,17 @@
                 const result = await response.json();
 
                 if (result.status === "success") {
-                    // --- Success: Data logged in Sheet ---
                     allReceiptsData.push(receiptData);
                     currentReceiptForEmail = { ...receiptData };
                     populateReceipt(receiptData);
                     showReceiptView();
                 } else {
-                    // --- Error reported from Apps Script ---
                     errorMessage.textContent = `Server Error: ${result.message || 'Unknown error.'}`;
                 }
-
             } catch (error) {
-                // --- Network or other fetch-related error ---
                 console.error("Fetch Error:", error);
                 errorMessage.textContent = "Network error. Could not connect to the server. Please check your connection and the SCRIPT_URL.";
             } finally {
-                // --- UI: Hide Loading State ---
                 setLoading(false);
             }
         });
@@ -256,26 +248,22 @@
                 errorMessage.textContent = 'Please fill out all required fields.';
                 return false;
             }
-
             const rollNoRegex = /^IT\d{4}$/i;
             if (!rollNoRegex.test(rollNo)) {
                 errorMessage.textContent = 'Invalid Roll Number. Must be in the format ITXXXX (e.g., IT2003).';
                 rollNoInput.focus();
                 return false;
             }
-
             const mobileRegex = /^\d{10}$/;
             if (!mobileRegex.test(mobile)) {
                 errorMessage.textContent = 'Invalid Mobile Number. Must be exactly 10 digits.';
                 mobileNoInput.focus();
                 return false;
             }
-
             if (SCRIPT_URL === "PASTE_YOUR_WEB_APP_URL_HERE") {
                 errorMessage.textContent = 'Configuration Error: Please paste your Google Apps Script URL into the script.';
                 return false;
             }
-            
             return true;
         }
 
@@ -327,19 +315,35 @@
         }
 
         function setLoading(isLoading) {
-            if (isLoading) {
-                generateBtn.disabled = true;
-                buttonText.textContent = 'Submitting...';
-                buttonLoader.classList.remove('hidden');
-            } else {
-                generateBtn.disabled = false;
-                buttonText.textContent = 'Generate Receipt';
-                buttonLoader.classList.add('hidden');
-            }
+            generateBtn.disabled = isLoading;
+            buttonText.textContent = isLoading ? 'Submitting...' : 'Generate Receipt';
+            buttonLoader.classList.toggle('hidden', !isLoading);
         }
 
         // --- Event Listeners for Buttons ---
-        document.getElementById('print-button').addEventListener('click', () => window.print());
+        downloadPdfBtn.addEventListener('click', () => {
+            const { jsPDF } = window.jspdf;
+            const receiptSection = document.getElementById('receipt-section');
+            const receiptNo = document.getElementById('receipt-no').textContent;
+
+            html2canvas(receiptSection, { scale: 2 }).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = pdf.internal.pageSize.getHeight();
+                const canvasWidth = canvas.width;
+                const canvasHeight = canvas.height;
+                const ratio = canvasWidth / canvasHeight;
+                const imgWidth = pdfWidth - 20; // with some margin
+                const imgHeight = imgWidth / ratio;
+                
+                let position = (pdfHeight - imgHeight) / 2;
+                if (position < 10) position = 10;
+
+                pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+                pdf.save(`Receipt-${receiptNo}.pdf`);
+            });
+        });
 
         document.getElementById('new-receipt-button').addEventListener('click', () => {
             receiptContainer.classList.remove('opacity-100');
@@ -361,6 +365,8 @@
 Dear ${name},
 
 Thank you for your contribution. Please find your receipt details below.
+
+*** Please remember to attach the PDF receipt you downloaded. ***
 
 -----------------------------------
 RECEIPT DETAILS
